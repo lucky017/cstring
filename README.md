@@ -2,17 +2,23 @@
 A string library in C with C++ standard features.
 
 
-## I will get back to it
-- [ ] Add Iterators to insert
-- [ ] Replace
-- [ ] assign
-- [ ] append
-- [ ] copy
-- [ ] resize
-- [ ] swap
+## Quick Start
+```
+git clone https://github.com/lucky017/cstring.git
+cd cstring
+make
+```
+Link the resulting static library with your binaries.
+ 
+
+## I will get back to
 - [ ] search functions
 - [ ] Operations
 - [ ] input & output
 - [ ] Numeric conversions
 - [ ] Literals
 - [ ] Hash support for cstring
+- [ ] Any Fuck-ups I have done in this library
+
+## License
+cstring library is licensed under the MIT License, see [LICENSE](https://github.com/lucky017/cstring/blob/master/LICENSE) for more information.

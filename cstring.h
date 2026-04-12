@@ -1,3 +1,47 @@
+
+//      MIT License
+
+//      Copyright (c) 2026 Abhiram Thatikonda
+
+//  Permission is hereby granted, free of charge, to any person obtaining a copy
+//  of this software and associated documentation files (the "Software"), to deal
+//  in the Software without restriction, including without limitation the rights
+//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//  copies of the Software, and to permit persons to whom the Software is
+//  furnished to do so, subject to the following conditions:
+
+//  The above copyright notice and this permission notice shall be included in all
+//  copies or substantial portions of the Software.
+
+//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//  SOFTWARE.
+
+//  The cstring library is very much similar to the std::basic_string in C++. 
+//  You can refer https://en.cppreference.com/w/cpp/string/basic_string.html
+
+/*
+ * Portions of this code are adapted from:
+ *   c-string by Steffen Illhardt
+ *   https://github.com/german-one/c-string
+ *
+ * Used under MIT License.
+ */
+
+/*
+ *  Notes:
+ * - Any function that modifies the char buffer expects `cstring*` as its first parameter.
+ * - Return values are optional in most cases, except for:
+ *     - cstr_init
+ *     - cstr_substr
+ *   These should be captured.
+ */
+
+
 #ifndef CSTRING_H_LIB_
 #define CSTRING_H_LIB_
 
@@ -8,13 +52,13 @@
 
 
 #if defined(__clang__) || defined(__GNUC__)
-    #define CSTR_NODISCARD __attribute__((warn_unused_result))
+#define CSTR_NODISCARD                                              __attribute__((warn_unused_result))
 #elif defined(_MSC_VER)
-    #define CSTR_NODISCARD _Check_return_
+#define CSTR_NODISCARD                                              _Check_return_
 #elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
-    #define CSTR_NODISCARD [[nodiscard]]
+#define CSTR_NODISCARD                                              [[nodiscard]]
 #else
-    #define CSTR_NODISCARD
+#define CSTR_NODISCARD
 #endif
 
 #ifdef __unused
@@ -24,26 +68,26 @@
 #undef __always_inline
 #endif
 
-#define __unused		    __attribute__((unused))
-#define __always_inline		__attribute__((__always_inline__))
+#define __unused		                                            __attribute__((unused))
+#define __always_inline		                                        __attribute__((__always_inline__))
 
 
 
 #ifndef __has_builtin
-#define __has_builtin(x) 0
+#define __has_builtin(x)                                            0
 #endif
 
 #if		__has_builtin(__builtin_constant_p) || defined(__GNUC__)
-#define pvt_builtin_constant_p(x)	__builtin_constant_p(x)
+#define pvt_builtin_constant_p(x)	                                __builtin_constant_p(x)
 #else
-#define pvt_builtin_constant_p(x)	0
+#define pvt_builtin_constant_p(x)	                                0
 #endif
 
 
 // Types:
 
-#define basic_cstring_type			char*
-#define basic_const_cstring			const char*
+#define basic_cstring_type			    char*
+#define basic_const_cstring			    const char*
 
 
 typedef _Bool							bool_t;
@@ -54,12 +98,15 @@ typedef struct { const_cstring it; }	cstr_const_iterator;
 typedef struct { cstring it; }			cstr_reverse_iterator;
 typedef struct { const_cstring it; }	cstr_const_reverse_iterator;
 
+#define const_iter(iter)                (cstr_const_iterator){ .it = (iter).it }
+
+#define const_reverse_iter(iter)        (cstr_const_reverse_iterator){ .it = (iter).it }
 
 #ifndef true
-#define true 1
+#define true    1
 #endif
 #ifndef false
-#define false 0
+#define false   0
 #endif
 
 #ifdef CSTRMAX
@@ -69,13 +116,11 @@ typedef struct { const_cstring it; }	cstr_const_reverse_iterator;
 #undef CSTRMIN
 #endif
 
-#define CSTRMAX(A, B) \
-	(A) > (B) ? (A) : (B)
-#define CSTRMIN(A, B) \
-	(A) < (B) ? (A) : (B)
+#define CSTRMAX(A, B)                   (A) > (B) ? (A) : (B)
+#define CSTRMIN(A, B)                   (A) < (B) ? (A) : (B)
 
-#define CSTRING_DEFAULT_CAP		15
-#define dummy_func				(void*)0
+#define CSTRING_DEFAULT_CAP		        15
+#define dummy_func				        (void*)0
 
 
 /* ----------------------------
@@ -84,6 +129,7 @@ typedef struct { const_cstring it; }	cstr_const_reverse_iterator;
 
 /* functions for allocation and deallocation need to correspond to each other,
    fall back to C library functions if not all are overridden */
+
 #if !defined(pvt_cstr_malloc) || !defined(pvt_cstr_realloc) || \
 	!defined(pvt_cstr_free)	  || !defined(pvt_cstr_memcpy) || \
 	!defined(pvt_cstr_memmove)
@@ -137,8 +183,7 @@ typedef struct { const_cstring it; }	cstr_const_reverse_iterator;
         }                                                               \
     } while(0)
 
-#define pvt_cstr_static_assert(cond, fmt)								\
-    _Static_assert( (cond), fmt );
+#define pvt_cstr_static_assert(cond, fmt)			_Static_assert( (cond), fmt );
 
 #else
 
@@ -195,7 +240,7 @@ typedef struct
 
 #define pvt_buf_grow_(ptr, count)                                               \
     do{                                                                         \
-        size_t tmp_size = (size_t)(count) * (sizeof(*(ptr)))                    \
+        size_t tmp_size = (size_t)(count + 1) * (sizeof(*(ptr)))                \
                         + sizeof(pvt_cstr_metadata_t);                          \
         pvt_cstr_metadata_t *base_ptr;                                          \
         base_ptr = (ptr) ? (pvt_cstr_metadata_t*)pvt_cstr_realloc(				\
@@ -239,16 +284,16 @@ typedef struct
     int       : arg_01
 
 #define PVT_GENERIC_STRING_TYPES( arg_01 )              \
-    cstring						: arg_01,				\
-	const_cstring				: arg_01 
+    cstring						           : arg_01,	\
+	const_cstring				           : arg_01 
 
 #define PVT_GENERIC_NORMAL_ITER( arg_01 )               \
-    cstr_iterator				: arg_01,				\
-    cstr_const_iterator			: arg_01
+    cstr_iterator				           : arg_01,	\
+    cstr_const_iterator			           : arg_01
 
 #define PVT_GENERIC_REVERSE_ITER( arg_01 )              \
-    cstr_reverse_iterator		: arg_01,				\
-    cstr_const_reverse_iterator : arg_01
+    cstr_reverse_iterator		           : arg_01,	\
+    cstr_const_reverse_iterator            : arg_01
 
 #define PVT_GENERIC_ITER_TYPES( arg_01 )                \
     PVT_GENERIC_NORMAL_ITER(arg_01),                    \
@@ -256,7 +301,7 @@ typedef struct
 
 #define PVT_MUTABLE_CSTRING( str )						\
     ( _Generic((str), cstring : 1, default : 0 ) &&		\
-	  !pvt_builtin_constant_p(str) )
+	        !pvt_builtin_constant_p(str) )
 
 #define PVT_IS_STRING( str )                            \
     ( _Generic((str),									\
@@ -274,7 +319,6 @@ typedef struct
  *   cstr_init(str, size | "text")           -> size or copy init
  *   cstr_init(str, n, ch | first, last)     -> fill or range init
  *   cstr_init(str, other, start, offset)    -> substring init
- * Dispatches automatically based on argument count and types.
  */
 #define cstr_init(...) \
     __cstr_init_chooser(__VA_ARGS__)(__VA_ARGS__)
@@ -297,8 +341,8 @@ cstr_free(cstring *ptr)
 
 
 /**
- * Functions related to the size & capacity
- ******************************************
+ *  Functions related to the size & capacity
+ *  ----------------------------------------
  */
 
 /**
@@ -343,7 +387,6 @@ cstr_shrink_to_fit(cstring *str)
     size_t size_01_ = cstr_size(*str);
     pvt_buf_grow_(*str, size_01_);
     pvt_set_total_cap_(*str, size_01_);
-    (*str)[size_01_] = (char)0;
 }
 /**
  * requests that the cstring capacity be adapted to a planned 
@@ -353,7 +396,7 @@ static inline
 void __unused
 cstr_reserve(cstring *str, size_t new_cap)
 {
-	if(!(*str) || new_cap > cstr_capacity(*str)) {
+	if((*str) && new_cap > cstr_capacity(*str)) {
 		pvt_buf_grow_(*str, new_cap);
 	}	
 }
@@ -375,27 +418,16 @@ cstr_reserve(cstring *str, size_t new_cap)
 /**
  * read the string buffer from the stream
  */
-static void __unused
-cstr_getstr(cstring *str, size_t cnt, FILE* stream)
-{
-    cstring str_02_ = *str;
-    pvt_cstr_assert(cnt < cstr_capacity(str_02_),
-                "count is larger than capacity to read.");
-    char l_str_array[cnt];
-    fgets(l_str_array, (int)cnt, stream);
-    pvt_copy_(str_02_, &l_str_array[0], cnt);
-}
-
+void __unused
+cstr_getstr(cstring *str, size_t cnt, FILE* stream);
 
 /**
  * print cstring to the stdout with a neswline at the end.
  */
-static void __unused
-cstr_println(const_cstring str)
-{
-    fputs(str, stdout);
-    putc('\n', stdout);
-}
+void __unused
+cstr_println(cstring str);
+
+
 
 
 /*
@@ -552,8 +584,7 @@ cstr_crend(const_cstring str)
         cstr_iterator*: intl_iter_next,                 \
         cstr_const_iterator*: intl_citer_next,          \
         cstr_reverse_iterator*: intl_riter_next,        \
-        cstr_const_reverse_iterator*: intl_criter_next, \
-        default : dummy_func                            \
+        cstr_const_reverse_iterator*: intl_criter_next  \
     )(it)
 
 /**
@@ -564,23 +595,8 @@ cstr_crend(const_cstring str)
         cstr_iterator*: intl_iter_prev,                 \
         cstr_const_iterator*: intl_citer_prev,          \
         cstr_reverse_iterator*: intl_riter_prev,        \
-        cstr_const_reverse_iterator*: intl_criter_prev, \
-        default : dummy_func                            \
+        cstr_const_reverse_iterator*: intl_criter_prev  \
     )(it)
-
-
-/*********************************
- *	---- Operations ----
- */
-
-static cstring __unused
-cstr_substr(const_cstring str, const size_t pos, const size_t count)
-{
-	cstring substr_ = NULL;
-	pvt_buf_grow_(substr_, count + 1);
-	pvt_copy_(substr_, str + pos, count);
-	return substr_;
-}
 
 
 /*
@@ -589,12 +605,12 @@ cstr_substr(const_cstring str, const size_t pos, const size_t count)
  */
 
 
-/* Generic insert for cstring.
+/* Generic insert function for cstring.
  *
  * Usage:
- *   cstr_insert(str, index, ch | "text")           -> insert char or string
- *   cstr_insert(str, index, count, ch | "text")    -> insert repeated char or string
- *   cstr_insert(str, index, other, pos, count)     -> insert substring
+ *   cstr_insert(str, index, ch | "text")               -> insert char or string
+ *   cstr_insert(str, index, count, ch | "text")        -> insert repeated char or string
+ *   cstr_insert(str, index, other, pos, count)         -> insert substring
  */
 #define cstr_insert(...) \
     __cstr_insert_chooser(__VA_ARGS__)(__VA_ARGS__)
@@ -602,9 +618,9 @@ cstr_substr(const_cstring str, const size_t pos, const size_t count)
 /* Generic erase function for cstring.
  *
  * Usage:
- *   cstr_erase(str, index, count)        -> erase by index
- *   cstr_erase(str, pos)                 -> erase single element (iterator)
- *   cstr_erase(str, first, last)         -> erase range
+ *   cstr_erase(str, index, count)                      -> erase by index
+ *   cstr_erase(str, pos)                               -> erase single element (iterator)
+ *   cstr_erase(str, first, last)                       -> erase range
  * Works with both iterator and const_iterator via _Generic dispatch.
  */
 #define cstr_erase(str, a, ...)                         \
@@ -621,13 +637,13 @@ cstr_substr(const_cstring str, const size_t pos, const size_t count)
     )(str, a, ##__VA_ARGS__)
 
 /*
- * Assigns new content to the given cstring.
+ * Generic assign function for cstring.
  *
  * Usage:
- *   intl_assign(str, other);               -> assign entire string
- *   intl_assign(str, other, count);        -> assign first 'count' characters
- *   intl_assign(str, other, pos, count);   -> assign substring [pos, pos+count)
- *   intl_assign(str, count, ch);           -> assign 'count' copies of character 'ch'
+ *   cstr_assign(str, other);                           -> assign entire string
+ *   cstr_assign(str, other, count);                    -> assign first 'count' characters
+ *   cstr_assign(str, other, pos, count);               -> assign substring [pos, pos+count)
+ *   cstr_assign(str, count, ch);                       -> assign 'count' copies of character 'ch'
  */
 #define cstr_assign(str, a, ...)                    \
     _Generic((a),                                   \
@@ -635,11 +651,51 @@ cstr_substr(const_cstring str, const size_t pos, const size_t count)
         PVT_GENERIC_SIZE_TYPES(intl_assign_cnt_ch)  \
     )(str, a, ##__VA_ARGS__)
 
+/*
+ * Generic append function for cstring.
+ *
+ * Usage:
+ *   cstr_append(str, other)                            → append full string
+ *   cstr_append(str, other, count)                     → append first `count` chars of string
+ *   cstr_append(str, count, ch)                        → append `count` copies of character `ch`
+ *   cstr_append(str, other, pos, count);               → append substring [pos, pos+count)
+ *
+ *   - Requires C11 (_Generic)
+ */
+#define cstr_append(...) \
+    __cstr_append_get_macro(__VA_ARGS__,    \
+        intl_append_substr,                 \
+        __cstr_append_3,                    \
+        intl_append_str                     \
+    )(__VA_ARGS__)
+
+
+/*
+ * Generic replace function for cstring.
+ *
+ * Usage:
+ *   cstr_replace(str, first, last, count2, ch)         → replace [first,last) with count2 copies of ch
+ *   cstr_replace(str, first, last, other, count2)      → replace [first,last) with first count2 chars of other
+ *   cstr_replace(str, pos, count, count2, ch)          → replace [pos,pos+count) with count2 copies of ch
+ *   cstr_replace(str, pos, count, other, pos2, count2) → replace [pos,pos+count) with other[pos2:pos2+count2)
+ *   cstr_replace(str, first, last, other)              → replace [first,last) with full string other
+ *   cstr_replace(str, pos, count, other, count2)       → replace [pos,pos+count) with first count2 chars of other
+ *
+ *   - Ranges are half-open: [start, end)
+ */
+#define cstr_replace(...) \
+    __cstr_replace_get_macro(__VA_ARGS__,   \
+        intl_replace_substr,                \
+        __cstr_replace_5,                   \
+        intl_replace_it_str                 \
+    )(##__VA_ARGS__)
+
+
 /**
  * Removes all characters from the string. All pointers, 
  * references, and iterators are invalidated.
  */
-static void __unused
+static inline void __unused
 cstr_clear(cstring *str)
 {
     pvt_fill_(*str, 0, cstr_size(*str), 0);
@@ -650,7 +706,7 @@ cstr_clear(cstring *str)
  * Appends the given character ch to the end of the cstring.
  */
 void __unused
-cstr_push_back(cstring *str);
+cstr_push_back(cstring *str, const char ch);
 
 /*
  * Removes the last character from the cstring.
@@ -658,41 +714,62 @@ cstr_push_back(cstring *str);
 void __unused
 cstr_pop_back(cstring *str);
 
+/*
+ * Copies a substring other[pos, pos + count) to cstring pointed to by str.
+ * The resulting character string is not null-terminated.
+ */
+size_t __unused 
+cstr_copy(cstring *str, const_cstring other, const size_t count,
+          const size_t pos);
+
+/**
+ * Resizes the cstring to contain count characters.
+ * If the current size is less than count, additional characters are appended.
+ * Pass 0 at `ch` as default.
+ */
+void __unused
+cstr_resize(cstring *str, const size_t count, const char ch);
+
+/**
+ * Exchanges the contents of the string with those of other.
+ * All iterators and references may be invalidated.
+ */
+void __unused
+cstr_swap(cstring *str, cstring *other);
+ 
+
+/*********************************
+ *	---- Operations ----
+ */
+
+/**
+ * Returns a substring of range [pos, pos + count) or [pos, size()). 
+ */
+CSTR_NODISCARD
+cstring __unused
+cstr_substr(const_cstring str, const size_t pos, const size_t count);
+
+
+
+
 // ============================================================================
 // INTERNAL MACROS (DO NOT USE)
 // ============================================================================
 
-#define __cstr_init_get_4th(_1,_2,_3,NAME,...) NAME
+
+
+/*      CONSTRUCTOR
+ * ----------------
+ */
+#define __cstr_init_get_macro(_1,_2,_3,NAME,...) NAME
 
 #define __cstr_init_chooser(...)        \
-    __cstr_init_get_4th(__VA_ARGS__,    \
+    __cstr_init_get_macro(__VA_ARGS__,  \
         __cstr_init_3,                  \
         __cstr_init_2,                  \
         __cstr_init_1,                  \
         __cstr_init_0)
 
-#define __cstr_insert_get_6th(_1,_2,_3,_4,_5,NAME,...) NAME
-
-#define __cstr_insert_chooser(...)      \
-    __cstr_insert_get_6th(__VA_ARGS__,  \
-        __cstr_insert_5,                \
-        __cstr_insert_4,                \
-        __cstr_insert_3)
-
-#define CSTR_GET_MACRO(_1,_2,_3,_4,NAME,...) NAME
-
-#define __cstr_assign_str(str, other, ...)  \
-    CSTR_GET_MACRO(__VA_ARGS__,             \
-        intl_assign_str_range,              \
-        intl_assign_str_offset,             \
-        intl_assign_str                     \
-    )(str, other, ##__VA_ARGS__)
-
-// ============================================================================
-//  WRAPPERS
-// ============================================================================
-
-/*  Constructor */
 #define __cstr_init_0()                                 \
     intl_default_constructor()
 
@@ -712,21 +789,87 @@ cstr_pop_back(cstring *str);
     intl_init_cpy_str_w_off(other, start, offset)
 
 
-/*  Insert */
-#define __cstr_insert_3(str, index, x)                  \
-    _Generic((x),                                       \
-        PVT_GENERIC_CHAR_TYPES(intl_insert_ch),         \
-        PVT_GENERIC_STRING_TYPES(intl_insert_str)       \
-    )(str, index, x)
+/*      INSERT
+ *------------
+ */
 
-#define __cstr_insert_4(str, index, a, b)               \
-    _Generic((b),                                       \
-        PVT_GENERIC_CHAR_TYPES(intl_insert_cnt_ch),     \
-        PVT_GENERIC_STRING_TYPES(intl_insert_cnt_str)   \
-    )(str, index, a, b)
+#define __cstr_insert_get_macro(_1,_2,_3,_4,_5,NAME,...) NAME
 
-#define __cstr_insert_5(str, index, other, pos, count)  \
+#define __cstr_insert_chooser(...)      \
+    __cstr_insert_get_macro(__VA_ARGS__,\
+        __cstr_insert_5,                \
+        __cstr_insert_4,                \
+        __cstr_insert_3)
+
+#define __cstr_insert_3(str, pos, x)                    \
+    _Generic((pos),                                     \
+        PVT_GENERIC_SIZE_TYPES(_Generic((x),            \
+            PVT_GENERIC_STRING_TYPES(intl_insert_str)   \
+        )),                                             \
+        cstr_iterator : intl_insert_iter_ch,            \
+        cstr_const_iterator : intl_insert_citer_ch      \
+    )(str, pos, x)
+
+#define __cstr_insert_4(str, pos, a, b)                     \
+    _Generic((pos),                                         \
+        PVT_GENERIC_SIZE_TYPES(_Generic((b),                \
+            PVT_GENERIC_CHAR_TYPES(intl_insert_cnt_ch),     \
+            PVT_GENERIC_STRING_TYPES(intl_insert_str_range) \
+        )),                                                 \
+        cstr_iterator : intl_insert_iter_cnt_ch,            \
+        cstr_const_iterator : intl_insert_citer_cnt_ch      \
+    )(str, pos, a, b)
+
+#define __cstr_insert_5(str, index, other, pos, count)      \
     intl_insert_substr(str, index, other, pos, count)
+
+/*      ASSIGN
+ * -----------
+ */
+
+#define __cstr_assign_get_macro(_1,_2,_3,_4,NAME,...) NAME
+
+#define __cstr_assign_str(str, other, ...)  \
+    __cstr_assign_get_macro(__VA_ARGS__,    \
+        intl_assign_str_range,              \
+        intl_assign_str_offset,             \
+        intl_assign_str                     \
+    )(str, other, ##__VA_ARGS__)
+
+
+/*      APPEND
+ * -----------
+ */
+#define __cstr_append_get_macro(_1,_2,_3,_4,NAME,...) NAME
+
+#define __cstr_append_3(str, a, b)                  \
+    _Generic((b),                                   \
+        PVT_GENERIC_CHAR_TYPES(intl_append_cnt_ch), \
+        default: intl_append_str_offset             \
+    )(str, a, b)
+
+
+/*
+ *      REPLACE 
+ * ------------
+ */
+
+#define __cstr_replace_get_macro(_1,_2,_3,_4,_5,_6,NAME,...) NAME
+
+
+#define __cstr_replace_5(str, a, b, c, d)                   \
+    _Generic((a),                                           \
+        PVT_GENERIC_NORMAL_ITER(_Generic((c),               \
+            PVT_GENERIC_SIZE_TYPES(intl_replace_it_fill_ch),\
+            PVT_GENERIC_STRING_TYPES(intl_replace_it_str_off)\
+        )),                                                     \
+        PVT_GENERIC_SIZE_TYPES(_Generic(c),                     \
+            PVT_GENERIC_STRING_TYPES(intl_replace_str_off),     \
+            PVT_GENERIC_SIZE_TYPES(intl_replace_fill_ch)        \
+        )                                                       \
+    )(str, a, b, c, d)
+
+
 
 
 // ============================================================================
@@ -741,51 +884,35 @@ cstr_pop_back(cstring *str);
 
 __always_inline
 static inline void __unused
-intl_iter_next(cstr_iterator *it) {
-    it->it++;
-}
+intl_iter_next(cstr_iterator *it)                   {   it->it++;   }
 
 __always_inline
 static inline void __unused
-intl_citer_next(cstr_const_iterator *it) {
-    it->it++;
-}
+intl_citer_next(cstr_const_iterator *it)            {   it->it++;   }
 
 __always_inline
 static inline void __unused
-intl_riter_next(cstr_reverse_iterator *it) {
-    it->it--;
-}
+intl_riter_next(cstr_reverse_iterator *it)          {   it->it--;   }
 
 __always_inline
 static inline void __unused
-intl_criter_next(cstr_const_reverse_iterator *it) {
-    it->it--;
-}
+intl_criter_next(cstr_const_reverse_iterator *it)   {   it->it--;   }
 
 __always_inline
 static inline void __unused
-intl_iter_prev(cstr_iterator *it) {
-    it->it--;
-}
+intl_iter_prev(cstr_iterator *it)                   {   it->it--;   }
 
 __always_inline
 static inline void __unused
-intl_citer_prev(cstr_const_iterator *it) {
-    it->it--;
-}
+intl_citer_prev(cstr_const_iterator *it)            {   it->it--;   }
 
 __always_inline
 static inline void __unused
-intl_riter_prev(cstr_reverse_iterator *it) {
-    it->it++;
-}
+intl_riter_prev(cstr_reverse_iterator *it)          {   it->it++;   }
 
 __always_inline
 static inline void __unused
-intl_criter_prev(cstr_const_reverse_iterator *it) {
-    it->it++;
-}
+intl_criter_prev(cstr_const_reverse_iterator *it)   {   it->it++;   }
 
 
 /*
@@ -793,38 +920,34 @@ intl_criter_prev(cstr_const_reverse_iterator *it) {
  *  -------------------------------------------
  */
 
-CSTR_NODISCARD
-__attribute__((malloc))
+CSTR_NODISCARD  __attribute__((malloc))
 cstring __unused
 intl_init_cpy_ch(const size_t cnt, const char ch);
 
-CSTR_NODISCARD
-__attribute__((malloc))
+
+CSTR_NODISCARD  __attribute__((malloc))
 cstring __unused
 intl_copy_constructor(const_cstring other);
 
-CSTR_NODISCARD
-__attribute__((malloc))
+
+CSTR_NODISCARD  __attribute__((malloc))
 cstring __unused
 intl_init_cpy_str_w_iter(cstr_iterator begin, 
                          cstr_iterator end);
 
-CSTR_NODISCARD
-__attribute__((malloc))
+CSTR_NODISCARD  __attribute__((malloc))
 cstring __unused
 intl_init_cpy_str_w_off(const_cstring other,
                         const size_t start, const size_t offset);
 
-CSTR_NODISCARD
-__attribute__((malloc))
+CSTR_NODISCARD  __attribute__((malloc))
 static inline cstring __unused
 intl_init_w_size(const size_t cnt)
 {
     return intl_init_cpy_ch(cnt, ' ');
 }
 
-CSTR_NODISCARD
-__attribute__((malloc))
+CSTR_NODISCARD  __attribute__((malloc))
 static inline cstring __unused 
 intl_default_constructor()
 {
@@ -863,23 +986,20 @@ intl_assign_str(cstring *str, const_cstring other)
 
 
 /*
- *  functions to erase
- *********************
+ *  Functions to erase characters
+ * ------------------------------
  */
 
 cstr_iterator __unused
-intl_erase_range_iter(cstring *str, cstr_iterator first,
-                      cstr_iterator last);
-
-static inline cstr_const_iterator __unused
 intl_erase_range_citer(cstring *str,
                        cstr_const_iterator first,
-                       cstr_const_iterator last)
+                       cstr_const_iterator last);
+
+static inline cstr_iterator __unused
+intl_erase_range_iter(cstring *str, cstr_iterator first,
+                      cstr_iterator last)
 {
-    return (cstr_const_iterator)
-    {intl_erase_range_iter(str, 
-            (cstr_iterator){(cstring)first.it}, 
-            (cstr_iterator){(cstring)last.it}).it};
+    return intl_erase_range_citer(str, const_iter(first), const_iter(last));
 }
 
 static inline cstring __unused
@@ -887,31 +1007,31 @@ intl_erase_idx(cstring *str, const size_t index,
                const size_t count)
 {
     cstring str_ = *str;
-    size_t count_ = index + 
-                (CSTRMIN(count, cstr_size(str_) - index));
-    intl_erase_range_iter(str, cstr_begin(str_ + index), 
-                            cstr_begin(str_ + count_));
+    size_t count_ = CSTRMIN(count + index, cstr_size(str_));
+
+    intl_erase_range_iter(&str_, cstr_begin(str_ + index), 
+                          cstr_begin(str_ + count_));
     return str_;
 }
 
 static inline cstr_iterator __unused
 intl_erase_ch_iter(cstring *str, cstr_iterator pos)
 {
-    return intl_erase_range_iter(str, pos, 
-                (cstr_iterator){pos.it + 1});
+    return intl_erase_range_iter(str, pos,
+                (cstr_iterator){ .it = pos.it + 1 });
 }
 
-static inline cstr_const_iterator __unused
+static inline cstr_iterator __unused
 intl_erase_ch_citer(cstring *str, cstr_const_iterator pos)
 {
-    return intl_erase_range_citer(str, pos, 
-                (cstr_const_iterator){pos.it + 1});
+    return intl_erase_range_citer(str, pos,
+                (cstr_const_iterator){ .it = pos.it + 1 });
 }
 
 
 /*
- *	functions to insert with multiple args
- *****************************************
+ *	Functions to insert characters
+ * -------------------------------
  */
 
 cstring __unused
@@ -919,20 +1039,14 @@ intl_insert_cnt_ch(cstring *str, const size_t index,
                    const size_t count, const char ch);
 
 cstring __unused
-intl_insert_cnt_str(cstring *str, const size_t index, 
-                    const size_t count, const_cstring other);
-
-
-static inline cstring __unused
-intl_insert_ch(cstring *str, const size_t index, const char ch)
-{
-    return intl_insert_cnt_ch(str, index, 1, ch);
-}
+intl_insert_str_range(cstring *str, const size_t index, 
+                      const size_t count, const_cstring other);
 
 static inline cstring __unused
 intl_insert_str(cstring *str, const size_t index, const_cstring other)
 {
-    return intl_insert_cnt_str(str, index, 1, other);
+    return intl_insert_str_range(str, index,
+                pvt_cstr_strlen(other), other);
 }
 
 static inline cstring __unused
@@ -944,12 +1058,114 @@ intl_insert_substr(cstring *str, const size_t index,
 }
 
 
+
+cstr_iterator __unused
+intl_insert_iter_cnt_ch(cstring *str, cstr_iterator pos, 
+                        const size_t count, const char ch);
+
+static inline cstr_iterator __unused
+intl_insert_citer_cnt_ch(cstring *str, cstr_const_iterator pos,
+                         const size_t count, const char ch)
+{
+    return intl_insert_iter_cnt_ch(str, 
+                (cstr_iterator){ (cstring)pos.it }, count, ch);
+}
+
+static inline cstr_iterator __unused
+intl_insert_iter_ch(cstring *str, cstr_iterator pos, const char ch)
+{
+    return intl_insert_iter_cnt_ch(str, pos, 1, ch);
+}
+
+static inline cstr_iterator __unused
+intl_insert_citer_ch(cstring *str, cstr_const_iterator pos, 
+                     const char ch)
+{
+    return intl_insert_citer_cnt_ch(str, pos, 1, ch);
+}
+
+
 /*
- *	functions to replace with multiple args
- ******************************************
+ *	Functions to append characters
+ * -------------------------------
+ */
+static inline cstring __unused
+intl_append_substr(cstring *str, const_cstring other,
+                   const size_t pos, const size_t count)
+{
+    return intl_insert_substr(str, cstr_size(*str), 
+                other, pos, count);
+}
+
+static inline cstring __unused
+intl_append_str_offset(cstring *str, const_cstring other,
+                       const size_t count)
+{
+    return intl_append_substr(str, other, 0, count);
+}
+
+static inline cstring __unused
+intl_append_str(cstring *str, const_cstring other)
+{
+    return intl_insert_str(str, cstr_size(*str), other);
+}
+
+static inline cstring __unused
+intl_append_cnt_ch(cstring *str, const size_t count, const char ch)
+{
+    return intl_insert_cnt_ch(str, cstr_size(*str), count, ch);
+}
+
+
+/**
+ *  Functions to replace characters
+ *  -------------------------------
  */
 
+cstring __unused
+intl_replace_it_fill_ch(cstring *str, cstr_const_iterator first,
+                        cstr_const_iterator last, const size_t count2,
+                        const char ch);
 
+cstring __unused
+intl_replace_it_str_off(cstring *str, cstr_const_iterator first,
+                        cstr_const_iterator last, const_cstring other,
+                        const size_t count2);
+
+
+static inline cstring __unused
+intl_replace_fill_ch(cstring *str, const size_t pos,
+                    const size_t count, const size_t count2,
+                    const char ch)
+{
+    return intl_replace_it_fill_ch(str, cstr_cbegin(*str + pos),
+                cstr_cbegin(*str + pos + count), count2 , ch);
+}
+
+static inline cstring __unused
+intl_replace_substr(cstring *str, const size_t pos, const size_t count,
+                    const_cstring other, const size_t pos2,
+                    const size_t count2)
+{
+    return intl_replace_it_str_off(str, cstr_cbegin(*str + pos),
+                cstr_cbegin(*str + pos + count), &other[pos2], count2);
+}
+
+
+static inline cstring __unused
+intl_replace_it_str(cstring *str, cstr_const_iterator first,
+                        cstr_const_iterator last, const_cstring other)
+{
+    return intl_replace_it_str_off(str, first, last, other,
+                pvt_cstr_strlen(other));
+}
+
+static inline cstring __unused
+intl_replace_str_off(cstring *str, const size_t pos, const size_t count,
+                     const_cstring other, const size_t count2)
+{
+    return intl_replace_substr(str, pos, count, other, 0, count2);
+}
 
 
 #endif
