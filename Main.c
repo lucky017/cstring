@@ -1,13 +1,19 @@
 #include "cstring.h"
 
+
 int main(void)
 {
-    cstring str = cstr_init("");
-    cstring other = cstr_init("");
-    
+    cstring s = cstr_init();
+    cstring str1 = cstr_init("k-hahkj89217");
+    cstr_literal(str2, "YOu Beyocchhh");
+    cstring tmp = (cstring)str2;
 
-    cstr_swap(&str, &other);
+    cstr_push_back(&s, 'A');
+    cstr_push_back(&str1, 'B');
 
-    printf("str = %s ==&== Size = %lu\n", str, cstr_size(str));
-    printf("other = %s ==&== Size = %lu\n", other, cstr_size(other));
+    cstr_swap(&str1, &s);
+
+    cstr_println(s);
+    cstr_println(str1);
+    cstr_println(tmp);
 }

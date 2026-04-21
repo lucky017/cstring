@@ -44,14 +44,14 @@ cstr_getstr(cstring *str, size_t cnt, FILE* stream)
     pvt_cstr_assert(cnt < cstr_capacity(str_02_),
                 "count is larger than capacity to read.");
 
-    char l_str_array[cnt];
-    fgets(l_str_array, (int)cnt, stream);
-    pvt_copy_(str_02_, &l_str_array[0], cnt);
+    size_t read_01_ = fread(str_02_, sizeof(*str_02_), cnt, stream);
+    str_02_[read_01_] = (char)0;
+    pvt_set_total_size_(str_02_, read_01_);
 }
 
 
 void __unused
-cstr_println(cstring str)
+cstr_println(const_cstring str)
 {
     fputs(str, stdout);
     putc('\n', stdout);
@@ -65,37 +65,27 @@ cstr_println(cstring str)
 void __unused
 cstr_resize(cstring *str, const size_t count, const char ch)
 {
-    cstring str_ = *str;
-    size_t idx_ = CSTRMIN(count, cstr_size(str_)),
-           size_ = CSTRMAX(count, cstr_size(str_));
+    cstring str_ = NULL;
+    size_t size_ = cstr_size(*str);
+    
+    cstr_reserve(str, count + 1);
+    str_ = *str;
 
-    char ch_ = (count == size_) ? ch : (char)0;
-    cstr_reserve(str, count);
-    pvt_fill_(str_, idx_, size_ - idx_, ch_);
+    if(count > size_) {
+        pvt_fill_(str_, size_, count - size_, ch);
+    }
+
+    str_[count] = (char)0;
+    pvt_set_total_size_(str_, count);
 }
 
 
 void __unused
 cstr_swap(cstring *str, cstring *other)
 {
-    cstring str1_ = *str, str2_ = *other;
-    const size_t size1_ = cstr_size(str1_),
-                 size2_ = cstr_size(str2_);
-    cstr_reserve(&str1_, size2_);
-    cstr_reserve(&str2_, size1_);
-
-    size_t max_ = CSTRMAX(size1_, size2_);
-    for(size_t i = 0; i < max_; ++i) {
-        char tmp = str1_[i];
-        str1_[i] = str2_[i];
-        str2_[i] = tmp;
-    }
-
-    pvt_set_total_size_(str1_, size2_);
-    pvt_set_total_size_(str2_, size1_);
-
-    *str = str1_;
-    *other = str2_;
+    cstring tmp = *str;
+    *str = *other;
+    *other = tmp;
 }
 
 /**
@@ -110,7 +100,7 @@ cstr_substr(const_cstring str, const size_t pos, const size_t count)
 	cstring substr_ = NULL;
     size_t count_ = CSTRMIN(count, cstr_size(str) - pos);
 
-	pvt_buf_grow_(substr_, count_);
+	pvt_buf_grow_(substr_, count_ + 1);
 	pvt_copy_(substr_, str + pos, count_);
 	return substr_;
 }
@@ -129,12 +119,12 @@ cstring __unused
 intl_assign_str_range(cstring *str, const_cstring other,
                       const size_t pos, const size_t count)
 {
-    cstring str_ = *str;
-    size_t size_ = pvt_cstr_strlen(other),
-           count_ = CSTRMIN(count, size_ - pos);
-    if(pos >= size_) return str_;
+    size_t size_ = pvt_cstr_strlen(other);
+    if(pos >= size_) return *str;
+    size_t count_ = CSTRMIN(count, size_ - pos);
 
-    cstr_reserve(str, count_);
+    cstr_reserve(str, count_ + 1);
+    cstring str_ = *str;
     pvt_cstr_memmove(str_, other + pos, count_);
     str_[count_] = (char)0;
     pvt_set_total_size_(str_, count_);
@@ -144,9 +134,8 @@ intl_assign_str_range(cstring *str, const_cstring other,
 cstring __unused
 intl_assign_cnt_ch(cstring *str, const size_t count, const char ch)
 {
+    cstr_reserve(str, count + 1);
     cstring str_ = *str;
-    
-    cstr_reserve(str, count);
     pvt_fill_(str_, 0, count, ch);
     str_[count] = (char)0;
     pvt_set_total_size_(str_, count);
@@ -196,7 +185,7 @@ intl_init_cpy_str_w_iter(cstr_iterator begin,
     cstring str_ = NULL;
     size_t size_ = cstr_distance(begin, end);
 
-    pvt_buf_grow_(str_, size_);
+    pvt_buf_grow_(str_, size_ + 1);
     pvt_copy_(str_, begin.it, size_);
     return str_;
 }
@@ -207,12 +196,12 @@ intl_init_cpy_str_w_off(const_cstring other,
                         const size_t start, const size_t offset) 
 {
     cstring str_ = NULL; 
-    size_t size_  = pvt_cstr_strlen(other) + 1,
+    size_t size_  = pvt_cstr_strlen(other),
            count_ = CSTRMIN(offset, size_ - start);
     pvt_cstr_assert(other != NULL && (start < size_), 
                     "Unsupported arguments passed for Constructor");
     
-    pvt_buf_grow_(str_, count_);
+    pvt_buf_grow_(str_, count_ + 1);
     pvt_copy_(str_, other + start, count_);
     return str_;
 }
@@ -261,7 +250,7 @@ intl_insert_cnt_ch(cstring *str, const size_t index,
     pvt_cstr_assert(count_ <= size_, 
         "index for insert is out of bounds");
     
-    cstr_reserve(str, size_);
+    cstr_reserve(str, size_ + 1);
     pvt_cstr_memmove(&str_[count_], &str_[index], size_ - index);
     pvt_fill_(str_, index, count, ch);
     
@@ -280,7 +269,7 @@ intl_insert_str_range(cstring *str, const size_t index,
     pvt_cstr_assert(index <= size_,
         "index for insert is out of bounds");
 
-    cstr_reserve(str, size_ + count_);
+    cstr_reserve(str, size_ + count_ + 1);
     pvt_cstr_memmove(&str_[index + count_], &str_[index],
                       size_ - index + 1);
 
@@ -296,21 +285,22 @@ intl_insert_iter_cnt_ch(cstring *str, cstr_iterator pos,
                         const size_t count, const char ch)
 {
     cstring str_ = *str;
-    cstr_iterator end = cstr_end(str_);
-    pvt_cstr_assert(pos.it <= end.it,
-        "Iterators are out of range [first, last)");
+    pvt_cstr_assert(pos.it <= cstr_end(str_).it,
+                "[cstr_insert]::Iterators are out of range");
     
-    size_t size_  = cstr_size(str_),
-           count_ = cstr_distance(pos, end);
-    
-    cstr_reserve(&str_, size_ + count);
-    pvt_cstr_memmove(pos.it + count, pos.it, count_);
-    pvt_fill_(str_, size_ - count_, count, ch);
+    size_t count_ = cstr_distance(pos, cstr_end(str_)),
+           size_  = cstr_size(str_) + count_,
+           pos_   = cstr_size(str_) - count_;
 
-    pvt_set_total_size_(str_, size_ + count);
-    str_[size_ + count] = (char)0;
+    
+    cstr_reserve(&str_, size_ + 1);
+    pvt_cstr_memmove(pos.it + count, pos.it, count_);
+    pvt_fill_(str_, pos_, count, ch);
+
+    pvt_set_total_size_(str_, size_);
+    str_[size_] = (char)0;
     *str = str_;
-    return cstr_begin(str_ + (size_ - count_));
+    return cstr_begin(str_ + (pos_));
 }
 
 
@@ -325,17 +315,17 @@ intl_replace_it_fill_ch(cstring *str, cstr_const_iterator first,
                         const char ch)
 {
     cstring str_ = *str;
-    if((first.it < cstr_cbegin(str_).it) ||
-       (last.it  > cstr_cend(str_).it)   ||
-       (first.it > last.it)) {
-        return str_;
-    }
+    cstring first__ = (cstring)first.it,
+            last__  = (cstring)last.it;
+    size_t pos_ = (size_t)(first__ - str_);
 
-    size_t count_ = CSTRMIN(count2, cstr_distance(first, last));
-    
-    cstring ptr = (cstring)first.it;
-    for(size_t i = 0; i < count_; ++i) ptr[i] = ch;
-    return str_;
+    pvt_cstr_assert((first__ >= cstr_cbegin(str_).it) &&
+                    (last__  <= cstr_cend(str_).it)   &&
+                    (first__ <= last__), 
+                    "[cstr_replace]::Iterators are out of range");
+
+    intl_erase_range_citer(str, first, last);
+    return intl_insert_cnt_ch(str, pos_, count2, ch);
 }
 
 cstring __unused
@@ -344,17 +334,47 @@ intl_replace_it_str_off(cstring *str, cstr_const_iterator first,
                         const size_t count2)
 {
     cstring str_ = *str;
-    if((first.it < cstr_cbegin(str_).it) ||
-       (last.it  > cstr_cend(str_).it)   ||
-       (first.it > last.it)) {
-        return str_;
-    }
+    cstring first__ = (cstring)first.it,
+            last__  = (cstring)last.it;
+    size_t count_ = CSTRMIN(count2, pvt_cstr_strlen(other)),
+           pos_   = (size_t)(first__ - str_);
+    
+    pvt_cstr_assert((first__ >= cstr_cbegin(str_).it) &&
+                    (last__  <= cstr_cend(str_).it)   &&
+                    (first__ <= last__), 
+                    "[cstr_replace]::Iterators are out of range");
 
-    size_t count_ = CSTRMIN(cstr_distance(first, last),
-                            CSTRMIN(count2, pvt_cstr_strlen(other)));
-    
-    cstring ptr = (cstring)first.it;
-    for(size_t i = 0; i < count_; ++i) ptr[i] = other[i];
-    
-    return str_;
+    intl_erase_range_citer(str, first, last);
+    return intl_insert_str_range(str, pos_, count_, other);
+}
+
+/**
+ *  Functions to find
+ *  -----------------
+ */
+
+size_t __unused
+intl_find_str_range(const_cstring str, const_cstring other,
+                    const size_t pos, const size_t count)
+{
+    size_t size = cstr_size(str);
+    if (pos >= size || count == 0) return CSTR_NPOS;
+    if (count > size - pos) return CSTR_NPOS;
+
+    for (size_t i = pos; i <= size - count; ++i) {
+        if (memcmp(str + i, other, count) == 0) {
+            return i;
+        }
+    }
+    return CSTR_NPOS;
+}
+
+size_t __unused
+intl_find_ch_offset(const_cstring str, const char ch, const size_t pos)
+{
+    size_t size = cstr_size(str);
+    if (pos >= size) return CSTR_NPOS;
+
+    char *found = memchr(str + pos, ch, size - pos);
+    return found ? (size_t)(found - str) : CSTR_NPOS;
 }

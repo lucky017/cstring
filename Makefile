@@ -14,11 +14,7 @@ endif
 CC := gcc
 CFLAGS := -Wall -Wextra -Wpedantic -Wshadow -Wformat=2 -Wcast-align -Wconversion -Wsign-conversion -Wnull-dereference
 
-# Ensure lib directory exists
 LIB_DIR := lib
-
-# Detect src folder
-HAS_SRC := $(wildcard src)
 
 # -------- LIBRARY --------
 LIB_NAME := libcstring.a
@@ -26,10 +22,9 @@ LIB_SRC := cstring.c
 LIB_OBJ := $(LIB_DIR)/cstring.o
 
 # -------- APP --------
-SRC := $(wildcard src/*.c)
-OBJ := $(patsubst src/%.c,$(LIB_DIR)/%.o,$(SRC))
-
-TARGET := app$(EXE_EXT)
+SRC := Main.c
+OBJ := $(LIB_DIR)/Main.o
+TARGET := obj$(EXE_EXT)
 
 # Default
 all: compile
@@ -38,40 +33,28 @@ all: compile
 $(LIB_DIR):
 	@$(MKDIR) $(LIB_DIR)
 
-# -------- COMPILE LIB OBJECT --------
-$(LIB_DIR)/%.o: %.c | $(LIB_DIR)
+# Compile library object
+$(LIB_DIR)/cstring.o: cstring.c | $(LIB_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# -------- COMPILE SRC OBJECTS --------
-$(LIB_DIR)/%.o: src/%.c | $(LIB_DIR)
+# Compile main object
+$(LIB_DIR)/Main.o: Main.c | $(LIB_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# -------- BUILD LIBRARY --------
+# Build library
 $(LIB_NAME): $(LIB_OBJ)
 	ar rcs $@ $^
 
-# -------- BUILD LOGIC --------
-compile: $(LIB_NAME)
-ifdef HAS_SRC
-	$(MAKE) build_app
-endif
-
-# -------- BUILD APP --------
-build_app: $(OBJ)
+# Build everything
+compile: $(LIB_NAME) $(OBJ)
 	$(CC) $(OBJ) -L. -lcstring -o $(TARGET)
 
-# -------- RUN --------
+# Run
 run: compile
-ifdef HAS_SRC
 	./$(TARGET)
-else
-	@echo "No executable (no src folder)"
-endif
 
-# -------- CLEAN --------
+# Clean
 clean:
 	$(RM) $(LIB_DIR)$(SEP)*.o
 	$(RM) $(LIB_NAME)
-ifdef HAS_SRC
 	$(RM) $(TARGET)
-endif
