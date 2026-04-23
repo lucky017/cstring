@@ -16,9 +16,9 @@ Link the resulting static library with your binaries.
 - [ ] Operations
 - [ ] input & output
 - [ ] Numeric conversions
-- [ ] Literals
+- [ ] Literals (support)
 - [ ] Hash support for cstring
-- [ ] Any Fuck-ups I have done in this library
+- [ ] Issues of performace and designs
 
 ## License
 cstring library is licensed under the MIT License, see [LICENSE](https://github.com/lucky017/cstring/blob/master/LICENSE) for more information.

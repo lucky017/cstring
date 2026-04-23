@@ -62,24 +62,27 @@
 
 #if defined(__clang__) || defined(__GNUC__)
 #define CSTR_NODISCARD                                              __attribute__((warn_unused_result))
+
 #elif defined(_MSC_VER)
 #define CSTR_NODISCARD                                              _Check_return_
+
 #elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
 #define CSTR_NODISCARD                                              [[nodiscard]]
+
 #else
 #define CSTR_NODISCARD
 #endif
 
-#ifdef __unused
-#undef __unused
-#endif
-#ifdef __always_inline
-#undef __always_inline
+#ifdef __cstr__unused
+#undef __cstr__unused
 #endif
 
-#define __unused		                                            __attribute__((unused))
-#define __always_inline		                                        __attribute__((__always_inline__))
+#ifdef __cstr__always_inline
+#undef __cstr__always_inline
+#endif
 
+#define __cstr__unused		                                        __attribute__((unused))
+#define __cstr__always_inline		                                __attribute__((__always_inline__))
 
 
 #ifndef __has_builtin
@@ -99,7 +102,6 @@
 #define basic_const_cstring			    const char*
 
 
-typedef _Bool							bool_t;
 typedef basic_cstring_type				cstring;
 typedef basic_const_cstring				const_cstring;
 typedef struct { cstring it; }			cstr_iterator;
@@ -111,13 +113,6 @@ typedef struct { const_cstring it; }	cstr_const_reverse_iterator;
 
 #define const_reverse_iter(iter)        (cstr_const_reverse_iterator){ .it = (iter).it }
 
-#ifndef true
-#define true    1
-#endif
-#ifndef false
-#define false   0
-#endif
-
 #ifdef CSTRMAX
 #undef CSTRMAX
 #endif
@@ -125,8 +120,8 @@ typedef struct { const_cstring it; }	cstr_const_reverse_iterator;
 #undef CSTRMIN
 #endif
 
-#define CSTRMAX(A, B)                   (A) > (B) ? (A) : (B)
-#define CSTRMIN(A, B)                   (A) < (B) ? (A) : (B)
+#define CSTRMAX(_A__01_, _B__01_)                   ((_A__01_) > (_B__01_) ? (_A__01_) : (_B__01_))
+#define CSTRMIN(_A__01_, _B__01_)                   ((_A__01_) < (_B__01_) ? (_A__01_) : (_B__01_))
 
 #define CSTR_NPOS                       ((size_t)-1)
 #define CSTRING_DEFAULT_CAP		        15
@@ -193,18 +188,11 @@ typedef struct { const_cstring it; }	cstr_const_reverse_iterator;
         }                                                               \
     } while(0)
 
-#define pvt_cstr_check_mutable(ptr)                                     \
-    pvt_cstr_static_assert(_Generic((ptr),                              \
-        cstring : 1,                                                    \
-        default  : 0),                                                  \
-        "Modifier called on read-only cstring (literal/const_cstring)")
-
 #define pvt_cstr_static_assert(cond, fmt)			_Static_assert( (cond), fmt );
 
 #else
 
 #define pvt_cstr_assert(cond, str)
-#define pvt_cstr_check_mutable(ptr)
 #define pvt_cstr_static_assert(cond, str)
 
 #endif
@@ -216,7 +204,7 @@ typedef struct
 {
     size_t size;
     size_t capacity;
-    bool_t   is_malloced;
+    bool   is_malloced;
 } pvt_cstr_metadata_t;
 
 
@@ -231,10 +219,10 @@ typedef struct
      ((ptr) ? pvt_dat_to_const_mdata_(ptr)->capacity : 0)
 
 #define pvt_total_size_(ptr)										    \
-      (ptr) ? pvt_dat_to_const_mdata_(ptr)->size : 0
+      ((ptr) ? pvt_dat_to_const_mdata_(ptr)->size : 0)
 
 #define pvt_is_malloced_(ptr)											\
-      (ptr) ? pvt_dat_to_const_mdata_(ptr)->is_malloced : false
+      ((ptr) ? pvt_dat_to_const_mdata_(ptr)->is_malloced : false)
 
 
 #define pvt_set_total_cap_(ptr, cap)                                    \
@@ -275,6 +263,7 @@ typedef struct
         pvt_cstr_assert(base_ptr_001_ != NULL, "allocation failed!!");				\
         base_ptr_001_->is_malloced = true;                                          \
         base_ptr_001_->capacity    = (size_t)(cap_001_);                            \
+        if(!ptr) base_ptr_001_->size = 0;                                           \
         (ptr)                 = (typeof(ptr))(base_ptr_001_ + 1);                   \
     } while(0)
 
@@ -344,6 +333,10 @@ typedef struct
 // PUBLIC API
 // ============================================================================
 
+/**
+ *      MEMBER FUNCTIONS
+ * ---------------------
+ */
 
 /*
  * Creates a constant cstring with embedded metadata.
@@ -361,16 +354,13 @@ typedef struct
  * - Safe to pass anywhere a const char* is expected
  */
 #define cstr_literal(name, lit)                                                         \
-    const_cstring name;                                                                 \
-    do {                                                                                \
-        static const struct {                                                           \
-            pvt_cstr_metadata_t mdata_;                                                 \
-            const char data[((sizeof(lit) + sizeof(size_t) - 1) / sizeof(size_t))       \
-                                            * sizeof(size_t)];                          \
-        } _cstring_literal_container_##name = {{(sizeof(lit) - 1),                      \
-                                            (sizeof(lit) - 1), false}, lit};            \
-        name                                = _cstring_literal_container_##name.data;   \
-    } while (0)
+    const struct {                                                                      \
+        pvt_cstr_metadata_t mdata_;                                                     \
+        const char data[((sizeof(lit) + sizeof(size_t) - 1) / sizeof(size_t))           \
+                                        * sizeof(size_t)];                              \
+    } _cstring_literal_container_##name = {{(sizeof(lit) - 1),                          \
+                                        (sizeof(lit) - 1), false}, lit};                \
+    const_cstring name = _cstring_literal_container_##name.data
 
 
 /* Generic constructor for cstring.
@@ -400,15 +390,15 @@ cstr_free(cstring *ptr)
 
 
 /**
- *  Functions related to the size & capacity
- *  ----------------------------------------
+ *      SIZE & CAPACITY 
+ *  -------------------
  */
 
 /**
  * returns the total size of the cstring as size_t
  */
-__always_inline
-static inline size_t __unused
+__cstr__always_inline
+static inline size_t __cstr__unused
 cstr_size(const_cstring str)
 {
     return pvt_total_size_(str);
@@ -417,8 +407,8 @@ cstr_size(const_cstring str)
 /**
  * returns the total length of the cstring as size_t
  */
-__always_inline
-static inline size_t __unused
+__cstr__always_inline
+static inline size_t __cstr__unused
 cstr_length(const_cstring str)
 {
     return pvt_total_size_(str);
@@ -427,8 +417,8 @@ cstr_length(const_cstring str)
 /**
  * returns the total capacity of the cstring as size_t
  */
-__always_inline
-static inline size_t __unused
+__cstr__always_inline
+static inline size_t __cstr__unused
 cstr_capacity(const_cstring str)
 {
     return pvt_total_cap_(str);
@@ -438,32 +428,28 @@ cstr_capacity(const_cstring str)
  * returns the maximum number of elements the cstring is able 
  * to hold due to system or library implementation limitations.
  */
-__always_inline
-static inline size_t __unused
+__cstr__always_inline
+static inline size_t __cstr__unused
 cstr_max_size()
 {
-	return (size_t)-1;
+	return ((size_t)-1) - sizeof(pvt_cstr_metadata_t) - 1;
 }
 
 /**
  * requests the removal of unused capacity. It is a request 
  * to reduce capacity() to size().
  */
-static inline void __unused
-cstr_shrink_to_fit(cstring *str)
-{
-    size_t size_01_ = cstr_size(*str);
-    pvt_buf_grow_(*str, size_01_);
-    pvt_set_total_cap_(*str, size_01_);
-}
+void __cstr__unused
+cstr_shrink_to_fit(cstring *str);
+
 /**
  * requests that the cstring capacity be adapted to a planned 
  * change of up to new_cap characters.
  */
-static inline void __unused
+static inline void __cstr__unused
 cstr_reserve(cstring *str, size_t new_cap)
 {
-	if((*str) && new_cap > cstr_capacity(*str)) {
+	if(!(*str) || new_cap > cstr_capacity(*str)) {
 		pvt_buf_grow_(*str, new_cap);
 	}	
 }
@@ -485,13 +471,13 @@ cstr_reserve(cstring *str, size_t new_cap)
 /**
  * read the string buffer from the stream
  */
-void __unused
+void __cstr__unused
 cstr_getstr(cstring *str, size_t cnt, FILE* stream);
 
 /**
  * print cstring to the stdout with a neswline at the end.
  */
-void __unused
+void __cstr__unused
 cstr_println(const_cstring str);
 
 
@@ -504,38 +490,39 @@ cstr_println(const_cstring str);
  * return the character at position `pos` in the cstring,
  * else -1 is returned.
  */
-__always_inline
-static inline char __unused
+__cstr__always_inline
+static inline char __cstr__unused
 cstr_at(const_cstring str, size_t pos)
 {
-    return (pos < cstr_size(str)) ? str[pos] : -1;
+    return (pos >= (size_t)0 && pos < cstr_size(str)) ? str[pos] : -1;
 }
 
 /**
  * return the first character in the cstring, else -1 is returned.
  */
-__always_inline
-static inline char __unused
+__cstr__always_inline
+static inline char __cstr__unused
 cstr_front(const_cstring str)
 {
-    return (str) ? str[0] : -1;
+    return (cstr_size(str) > 0) ? str[0] : -1;
 }
 
 /**
  * return the last character in the cstring, else -1 is returned.
  */
-__always_inline
-static inline char __unused
+__cstr__always_inline
+static inline char __cstr__unused
 cstr_back(const_cstring str)
 {
-    return (str) ? str[cstr_size(str) - 1] : -1;
+    size_t size = cstr_size(str);
+    return (size > 0) ? str[size - 1] : -1;
 }
 
 /**
  * return true/1 if NULL or empty, false/0 if non-empty.
  */
-__always_inline
-static inline bool_t __unused
+__cstr__always_inline
+static inline bool __cstr__unused
 cstr_empty(const_cstring str)
 {
     return (cstr_size(str) == (size_t)0);
@@ -550,8 +537,8 @@ cstr_empty(const_cstring str)
 /**
  * returns a mutable iterator to the first character of the cstring.
  */
-__always_inline
-static inline cstr_iterator __unused
+__cstr__always_inline
+static inline cstr_iterator __cstr__unused
 cstr_begin(cstring str)
 {
     return (cstr_iterator){ str };
@@ -560,8 +547,8 @@ cstr_begin(cstring str)
 /**
  * returns a constant iterator to the first character of the cstring.
  */
-__always_inline
-static inline cstr_const_iterator __unused
+__cstr__always_inline
+static inline cstr_const_iterator __cstr__unused
 cstr_cbegin(const_cstring str)
 {
     return (cstr_const_iterator){ str };
@@ -572,8 +559,8 @@ cstr_cbegin(const_cstring str)
  * character of the string. This character acts as a placeholder, 
  * attempting to access it results in undefined behavior. 
  */
-__always_inline
-static inline cstr_iterator __unused
+__cstr__always_inline
+static inline cstr_iterator __cstr__unused
 cstr_end(cstring str)
 {
     return (cstr_iterator){ (str + cstr_size(str)) };
@@ -584,8 +571,8 @@ cstr_end(cstring str)
  * character of the string. This character acts as a placeholder,
  * attempting to access it results in undefined behavior.
  */
-__always_inline
-static inline cstr_const_iterator __unused
+__cstr__always_inline
+static inline cstr_const_iterator __cstr__unused
 cstr_cend(const_cstring str)
 {
     return (cstr_const_iterator){ (str + cstr_size(str)) };
@@ -596,8 +583,8 @@ cstr_cend(const_cstring str)
  * reversed cstring. It corresponds to the last character of the
  * non-reversed cstring.
  */
-__always_inline
-static inline cstr_reverse_iterator __unused
+__cstr__always_inline
+static inline cstr_reverse_iterator __cstr__unused
 cstr_rbegin(cstring str)
 {
     return (cstr_reverse_iterator){ (str + cstr_size(str) - 1) };
@@ -608,8 +595,8 @@ cstr_rbegin(cstring str)
  * reversed cstring. It corresponds to the last character of the
  * non-reversed cstring.
  */
-__always_inline
-static inline cstr_const_reverse_iterator __unused
+__cstr__always_inline
+static inline cstr_const_reverse_iterator __cstr__unused
 cstr_crbegin(const_cstring str)
 {
     return (cstr_const_reverse_iterator){ (str + cstr_size(str) - 1) };
@@ -621,8 +608,8 @@ cstr_crbegin(const_cstring str)
  * preceding the first character of the non-reversed cstring.This character
  * acts as a placeholder, attempting to access it results in undefined behavior.
  */
-__always_inline
-static inline cstr_reverse_iterator __unused
+__cstr__always_inline
+static inline cstr_reverse_iterator __cstr__unused
 cstr_rend(cstring str)
 {
     return (cstr_reverse_iterator){ (str - 1) };
@@ -634,8 +621,8 @@ cstr_rend(cstring str)
  * preceding the first character of the non-reversed cstring. This character
  * acts as a placeholder, attempting to access it results in undefined behavior.
  */
-__always_inline
-static inline cstr_const_reverse_iterator __unused
+__cstr__always_inline
+static inline cstr_const_reverse_iterator __cstr__unused
 cstr_crend(const_cstring str)
 {
     return (cstr_const_reverse_iterator){ (str - 1) };
@@ -690,18 +677,11 @@ cstr_crend(const_cstring str)
  *   cstr_erase(str, first, last)                       -> erase range
  * Works with both iterator and const_iterator via _Generic dispatch.
  */
-#define cstr_erase(str, a, ...)                         \
-    _Generic((a),                                       \
-        PVT_GENERIC_SIZE_TYPES(intl_erase_idx),         \
-        cstr_iterator: _Generic((__VA_ARGS__),          \
-            cstr_iterator: intl_erase_range_iter,       \
-            default: intl_erase_ch_iter                 \
-        ),                                              \
-        cstr_const_iterator: _Generic((__VA_ARGS__),    \
-            cstr_const_iterator: intl_erase_range_citer,\
-            default: intl_erase_ch_citer                \
-        )                                               \
-    )(str, a, __VA_ARGS__)
+#define cstr_erase(...) \
+    __cstr_erase_get_macro(__VA_ARGS__, \
+        intl_erase_3,                   \
+        intl_erase_2)                   \
+        (__VA_ARGS__)
 
 /*
  * Generic assign function for cstring.
@@ -759,7 +739,7 @@ cstr_crend(const_cstring str)
  * Removes all characters from the string. All pointers, 
  * references, and iterators are invalidated.
  */
-static inline void __unused
+static inline void __cstr__unused
 cstr_clear(cstring *str)
 {
     pvt_fill_(*str, 0, cstr_size(*str), 0);
@@ -769,20 +749,20 @@ cstr_clear(cstring *str)
 /*
  * Appends the given character ch to the end of the cstring.
  */
-void __unused
+void __cstr__unused
 cstr_push_back(cstring *str, const char ch);
 
 /*
  * Removes the last character from the cstring.
  */
-void __unused
+void __cstr__unused
 cstr_pop_back(cstring *str);
 
 /*
  * Copies a substring other[pos, pos + count) to cstring pointed to by str.
  * The resulting character string is not null-terminated.
  */
-size_t __unused 
+size_t __cstr__unused 
 cstr_copy(cstring *str, const_cstring other, const size_t count,
           const size_t pos);
 
@@ -791,14 +771,14 @@ cstr_copy(cstring *str, const_cstring other, const size_t count,
  * If the current size is less than count, additional characters are appended.
  * Pass 0 at `ch` as default.
  */
-void __unused
+void __cstr__unused
 cstr_resize(cstring *str, const size_t count, const char ch);
 
 /**
  * Exchanges the contents of the string with those of other.
  * All iterators and references may be invalidated.
  */
-void __unused
+void __cstr__unused
 cstr_swap(cstring *str, cstring *other);
  
 
@@ -811,7 +791,7 @@ cstr_swap(cstring *str, cstring *other);
  * Returns a substring of range [pos, pos + count) or [pos, size()). 
  */
 CSTR_NODISCARD
-cstring __unused
+cstring __cstr__unused
 cstr_substr(const_cstring str, const size_t pos, const size_t count);
 
 
@@ -869,7 +849,8 @@ cstr_substr(const_cstring str, const size_t pos, const size_t count);
 #define __cstr_insert_3(str, pos, x)                    \
     _Generic((pos),                                     \
         PVT_GENERIC_SIZE_TYPES(_Generic((x),            \
-            PVT_GENERIC_STRING_TYPES(intl_insert_str)   \
+            PVT_GENERIC_STRING_TYPES(intl_insert_str),  \
+            default: dummy_func                         \
         )),                                             \
         cstr_iterator : intl_insert_iter_ch,            \
         cstr_const_iterator : intl_insert_citer_ch      \
@@ -879,7 +860,8 @@ cstr_substr(const_cstring str, const size_t pos, const size_t count);
     _Generic((pos),                                         \
         PVT_GENERIC_SIZE_TYPES(_Generic((b),                \
             PVT_GENERIC_CHAR_TYPES(intl_insert_cnt_ch),     \
-            PVT_GENERIC_STRING_TYPES(intl_insert_str_range) \
+            PVT_GENERIC_STRING_TYPES(intl_insert_str_range),\
+            default: dummy_func                             \
         )),                                                 \
         cstr_iterator : intl_insert_iter_cnt_ch,            \
         cstr_const_iterator : intl_insert_citer_cnt_ch      \
@@ -921,9 +903,10 @@ cstr_substr(const_cstring str, const size_t pos, const size_t count);
 #define __cstr_append_get_macro(_1,_2,_3,_4,NAME,...) NAME
 
 #define __cstr_append_3(str, a, b)                  \
-    _Generic((b),                                   \
-        PVT_GENERIC_CHAR_TYPES(intl_append_cnt_ch), \
-        default: intl_append_str_offset             \
+    _Generic((a),                                   \
+        PVT_GENERIC_STRING_TYPES(intl_append_str_offset), \
+        PVT_GENERIC_SIZE_TYPES(intl_append_cnt_ch),      \
+        default: dummy_func                         \
     )(str, a, b)
 
 
@@ -948,6 +931,25 @@ cstr_substr(const_cstring str, const size_t pos, const size_t count);
     )(str, a, b, c, d)
 
 
+/*
+ *      ERASE 
+ * ----------
+ */
+
+#define __cstr_erase_get_macro(_1,_2,_3,NAME,...) NAME
+
+#define intl_erase_2(str, a)                            \
+    _Generic((a),                                       \
+        cstr_iterator: intl_erase_ch_iter,              \
+        cstr_const_iterator: intl_erase_ch_citer        \
+    )(str, a)
+
+#define intl_erase_3(str, a, b)                         \
+    _Generic((a),                                       \
+        PVT_GENERIC_SIZE_TYPES(intl_erase_idx),         \
+        cstr_iterator: intl_erase_range_iter,           \
+        cstr_const_iterator: intl_erase_range_citer     \
+    )(str, a, b)
 
 
 // ============================================================================
@@ -960,36 +962,36 @@ cstr_substr(const_cstring str, const size_t pos, const size_t count);
  *  ------------------------------------------------------
  */
 
-__always_inline
-static inline void __unused
+__cstr__always_inline
+static inline void __cstr__unused
 intl_iter_next(cstr_iterator *it)                   {   it->it++;   }
 
-__always_inline
-static inline void __unused
+__cstr__always_inline
+static inline void __cstr__unused
 intl_citer_next(cstr_const_iterator *it)            {   it->it++;   }
 
-__always_inline
-static inline void __unused
+__cstr__always_inline
+static inline void __cstr__unused
 intl_riter_next(cstr_reverse_iterator *it)          {   it->it--;   }
 
-__always_inline
-static inline void __unused
+__cstr__always_inline
+static inline void __cstr__unused
 intl_criter_next(cstr_const_reverse_iterator *it)   {   it->it--;   }
 
-__always_inline
-static inline void __unused
+__cstr__always_inline
+static inline void __cstr__unused
 intl_iter_prev(cstr_iterator *it)                   {   it->it--;   }
 
-__always_inline
-static inline void __unused
+__cstr__always_inline
+static inline void __cstr__unused
 intl_citer_prev(cstr_const_iterator *it)            {   it->it--;   }
 
-__always_inline
-static inline void __unused
+__cstr__always_inline
+static inline void __cstr__unused
 intl_riter_prev(cstr_reverse_iterator *it)          {   it->it++;   }
 
-__always_inline
-static inline void __unused
+__cstr__always_inline
+static inline void __cstr__unused
 intl_criter_prev(cstr_const_reverse_iterator *it)   {   it->it++;   }
 
 
@@ -999,34 +1001,34 @@ intl_criter_prev(cstr_const_reverse_iterator *it)   {   it->it++;   }
  */
 
 CSTR_NODISCARD  __attribute__((malloc))
-cstring __unused
+cstring __cstr__unused
 intl_init_cpy_ch(const size_t cnt, const char ch);
 
 
 CSTR_NODISCARD  __attribute__((malloc))
-cstring __unused
+cstring __cstr__unused
 intl_copy_constructor(const_cstring other);
 
 
 CSTR_NODISCARD  __attribute__((malloc))
-cstring __unused
+cstring __cstr__unused
 intl_init_cpy_str_w_iter(cstr_iterator begin, 
                          cstr_iterator end);
 
 CSTR_NODISCARD  __attribute__((malloc))
-cstring __unused
+cstring __cstr__unused
 intl_init_cpy_str_w_off(const_cstring other,
                         const size_t start, const size_t offset);
 
 CSTR_NODISCARD  __attribute__((malloc))
-static inline cstring __unused
+static inline cstring __cstr__unused
 intl_init_w_size(const size_t cnt)
 {
     return intl_init_cpy_ch(cnt, ' ');
 }
 
 CSTR_NODISCARD  __attribute__((malloc))
-static inline cstring __unused 
+static inline cstring __cstr__unused 
 intl_default_constructor()
 {
     return intl_init_cpy_ch(0, 0);
@@ -1037,21 +1039,21 @@ intl_default_constructor()
  *  ---------------------------
  */
 
-cstring __unused
+cstring __cstr__unused
 intl_assign_str_range(cstring *str, const_cstring other,
                       const size_t pos, const size_t count);
 
-cstring __unused
+cstring __cstr__unused
 intl_assign_cnt_ch(cstring *str, const size_t count, const char ch);
 
-static inline cstring __unused
+static inline cstring __cstr__unused
 intl_assign_str_offset(cstring *str, const_cstring other, 
                        const size_t count)
 {
     return intl_assign_str_range(str, other, 0, count);
 }
 
-static inline cstring __unused
+static inline cstring __cstr__unused
 intl_assign_str(cstring *str, const_cstring other)
 {
     return intl_assign_str_range(str, other, 0, pvt_cstr_strlen(other));
@@ -1068,19 +1070,19 @@ intl_assign_str(cstring *str, const_cstring other)
  * ------------------------------
  */
 
-cstr_iterator __unused
+cstr_iterator __cstr__unused
 intl_erase_range_citer(cstring *str,
                        cstr_const_iterator first,
                        cstr_const_iterator last);
 
-static inline cstr_iterator __unused
+static inline cstr_iterator __cstr__unused
 intl_erase_range_iter(cstring *str, cstr_iterator first,
                       cstr_iterator last)
 {
     return intl_erase_range_citer(str, const_iter(first), const_iter(last));
 }
 
-static inline cstring __unused
+static inline cstring __cstr__unused
 intl_erase_idx(cstring *str, const size_t index,
                const size_t count)
 {
@@ -1092,14 +1094,14 @@ intl_erase_idx(cstring *str, const size_t index,
     return str_;
 }
 
-static inline cstr_iterator __unused
+static inline cstr_iterator __cstr__unused
 intl_erase_ch_iter(cstring *str, cstr_iterator pos)
 {
     return intl_erase_range_iter(str, pos,
                 (cstr_iterator){ .it = pos.it + 1 });
 }
 
-static inline cstr_iterator __unused
+static inline cstr_iterator __cstr__unused
 intl_erase_ch_citer(cstring *str, cstr_const_iterator pos)
 {
     return intl_erase_range_citer(str, pos,
@@ -1112,22 +1114,22 @@ intl_erase_ch_citer(cstring *str, cstr_const_iterator pos)
  * -------------------------------
  */
 
-cstring __unused
+cstring __cstr__unused
 intl_insert_cnt_ch(cstring *str, const size_t index, 
                    const size_t count, const char ch);
 
-cstring __unused
+cstring __cstr__unused
 intl_insert_str_range(cstring *str, const size_t index, 
                       const size_t count, const_cstring other);
 
-static inline cstring __unused
+static inline cstring __cstr__unused
 intl_insert_str(cstring *str, const size_t index, const_cstring other)
 {
     return intl_insert_str_range(str, index,
                 pvt_cstr_strlen(other), other);
 }
 
-static inline cstring __unused
+static inline cstring __cstr__unused
 intl_insert_substr(cstring *str, const size_t index, 
 		           const_cstring other, const size_t pos,
                    const size_t count)
@@ -1137,11 +1139,11 @@ intl_insert_substr(cstring *str, const size_t index,
 
 
 
-cstr_iterator __unused
+cstr_iterator __cstr__unused
 intl_insert_iter_cnt_ch(cstring *str, cstr_iterator pos, 
                         const size_t count, const char ch);
 
-static inline cstr_iterator __unused
+static inline cstr_iterator __cstr__unused
 intl_insert_citer_cnt_ch(cstring *str, cstr_const_iterator pos,
                          const size_t count, const char ch)
 {
@@ -1149,13 +1151,13 @@ intl_insert_citer_cnt_ch(cstring *str, cstr_const_iterator pos,
                 (cstr_iterator){ (cstring)pos.it }, count, ch);
 }
 
-static inline cstr_iterator __unused
+static inline cstr_iterator __cstr__unused
 intl_insert_iter_ch(cstring *str, cstr_iterator pos, const char ch)
 {
     return intl_insert_iter_cnt_ch(str, pos, 1, ch);
 }
 
-static inline cstr_iterator __unused
+static inline cstr_iterator __cstr__unused
 intl_insert_citer_ch(cstring *str, cstr_const_iterator pos, 
                      const char ch)
 {
@@ -1167,7 +1169,7 @@ intl_insert_citer_ch(cstring *str, cstr_const_iterator pos,
  *	Functions to append characters
  * -------------------------------
  */
-static inline cstring __unused
+static inline cstring __cstr__unused
 intl_append_substr(cstring *str, const_cstring other,
                    const size_t pos, const size_t count)
 {
@@ -1175,20 +1177,20 @@ intl_append_substr(cstring *str, const_cstring other,
                 other, pos, count);
 }
 
-static inline cstring __unused
+static inline cstring __cstr__unused
 intl_append_str_offset(cstring *str, const_cstring other,
                        const size_t count)
 {
     return intl_append_substr(str, other, 0, count);
 }
 
-static inline cstring __unused
+static inline cstring __cstr__unused
 intl_append_str(cstring *str, const_cstring other)
 {
     return intl_insert_str(str, cstr_size(*str), other);
 }
 
-static inline cstring __unused
+static inline cstring __cstr__unused
 intl_append_cnt_ch(cstring *str, const size_t count, const char ch)
 {
     return intl_insert_cnt_ch(str, cstr_size(*str), count, ch);
@@ -1200,18 +1202,18 @@ intl_append_cnt_ch(cstring *str, const size_t count, const char ch)
  *  -------------------------------
  */
 
-cstring __unused
+cstring __cstr__unused
 intl_replace_it_fill_ch(cstring *str, cstr_const_iterator first,
                         cstr_const_iterator last, const size_t count2,
                         const char ch);
 
-cstring __unused
+cstring __cstr__unused
 intl_replace_it_str_off(cstring *str, cstr_const_iterator first,
                         cstr_const_iterator last, const_cstring other,
                         const size_t count2);
 
 
-static inline cstring __unused
+static inline cstring __cstr__unused
 intl_replace_fill_ch(cstring *str, const size_t pos,
                     const size_t count, const size_t count2,
                     const char ch)
@@ -1220,7 +1222,7 @@ intl_replace_fill_ch(cstring *str, const size_t pos,
                 cstr_cbegin(*str + pos + count), count2 , ch);
 }
 
-static inline cstring __unused
+static inline cstring __cstr__unused
 intl_replace_substr(cstring *str, const size_t pos, const size_t count,
                     const_cstring other, const size_t pos2,
                     const size_t count2)
@@ -1230,7 +1232,7 @@ intl_replace_substr(cstring *str, const size_t pos, const size_t count,
 }
 
 
-static inline cstring __unused
+static inline cstring __cstr__unused
 intl_replace_it_str(cstring *str, cstr_const_iterator first,
                         cstr_const_iterator last, const_cstring other)
 {
@@ -1238,7 +1240,7 @@ intl_replace_it_str(cstring *str, cstr_const_iterator first,
                 pvt_cstr_strlen(other));
 }
 
-static inline cstring __unused
+static inline cstring __cstr__unused
 intl_replace_str_off(cstring *str, const size_t pos, const size_t count,
                      const_cstring other, const size_t count2)
 {
@@ -1251,27 +1253,27 @@ intl_replace_str_off(cstring *str, const size_t pos, const size_t count,
  *  -----------------------------
  */
 
-size_t __unused
+size_t __cstr__unused
 intl_find_str_range(const_cstring str, const_cstring other,
                     const size_t pos, const size_t count);
 
-size_t __unused
+size_t __cstr__unused
 intl_find_ch_offset(const_cstring str, const char ch, const size_t pos);
 
 
-static inline size_t __unused
+static inline size_t __cstr__unused
 intl_find_str_offset(const_cstring str, const_cstring other, const size_t pos)
 {
     return intl_find_str_range(str, other, pos, pvt_cstr_strlen(other));
 }
 
-static inline size_t __unused
+static inline size_t __cstr__unused
 intl_find_str(const_cstring str, const_cstring other)
 {
     return intl_find_str_range(str, other, 0, pvt_cstr_strlen(other));
 }
 
-static inline size_t __unused
+static inline size_t __cstr__unused
 intl_find_ch(const_cstring str, const char ch)
 {
     return intl_find_ch_offset(str, ch, 0);
