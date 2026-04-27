@@ -1,6 +1,9 @@
 # cstring
 A string library in C with C++ standard features.
 
+I don't have a documentation for now but
+for reference check:
+[cppreference](https://en.cppreference.com/cpp/string/basic_string)
 
 ## Quick Start
 ```
@@ -12,13 +15,14 @@ Link the resulting static library with your binaries.
  
 
 ## I will get back to
-- [ ] search functions
-- [ ] Operations
-- [ ] input & output
+- [ ] Search functions
+- [ ] Input & Output
 - [ ] Numeric conversions
-- [ ] Literals (support)
+- [ ] Support for Literals
 - [ ] Hash support for cstring
-- [ ] Issues of performace and designs
+- [ ] Reverse iterators
+- [ ] String View
+- [ ] Issues of performance and designs
 
 ## License
 cstring library is licensed under the MIT License, see [LICENSE](https://github.com/lucky017/cstring/blob/master/LICENSE) for more information.

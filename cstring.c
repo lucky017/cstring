@@ -2,10 +2,53 @@
 #include "cstring.h"
 
 
+/** 
+ *      Helper Functions
+ *  --------------------
+ */
+
+static cstring pvt_buf_grow_(cstring ptr, size_t count)
+{
+    size_t cap_001_ = (ptr) ?
+                        CSTRMAX(count, pvt_total_cap_(ptr) << 1) :
+                        CSTRMAX(count, CSTRING_DEFAULT_CAP);
+    cap_001_ = CSTRMIN(cap_001_, cstr_max_size());
+    size_t tmp_size_001_ = ((cap_001_ + 1) * sizeof(*ptr))
+                            + sizeof(pvt_cstr_metadata_t);
+    pvt_cstr_metadata_t *base_ptr_001_;
+
+    if(ptr){
+        pvt_cstr_assert(pvt_is_malloced_(ptr),
+                     "Literals(const char[]) are not modifiable");
+        base_ptr_001_ = (pvt_cstr_metadata_t*)pvt_cstr_realloc(
+						        pvt_dat_to_mdata_(ptr), tmp_size_001_);
+    }
+    else {
+        base_ptr_001_ = (pvt_cstr_metadata_t*)pvt_cstr_malloc(tmp_size_001_);
+    }
+
+    pvt_cstr_assert(base_ptr_001_ != NULL, "allocation failed!!");
+    
+    base_ptr_001_->is_malloced = true;
+    base_ptr_001_->capacity    = (size_t)(cap_001_);
+    if(!ptr) base_ptr_001_->size = 0;
+
+    return (cstring)(base_ptr_001_ + 1);  
+}
+
+
 // =========================================================
 //                      PUBLIC API
 // ======================================================== 
 
+
+void __cstr__unused
+cstr_reserve(cstring *str, size_t new_cap)
+{
+	if(!(*str) || new_cap > cstr_capacity(*str)) {
+		(*str) = pvt_buf_grow_(*str, new_cap);
+	}	
+}
 
 void __cstr__unused
 cstr_shrink_to_fit(cstring *str)
@@ -13,7 +56,8 @@ cstr_shrink_to_fit(cstring *str)
     if (!(*str) || !pvt_is_malloced_(*str)) return;
     cstring str_ = *str;
     size_t size_ = cstr_size(str_);
-    if (size_ < cstr_capacity(str_)) {
+    
+	if (size_ < cstr_capacity(str_)) {
         size_t size_001_ = sizeof(pvt_cstr_metadata_t) + (size_ + 1) * sizeof(char);
         pvt_cstr_metadata_t *mdata = (pvt_cstr_metadata_t *)
                             pvt_cstr_realloc(pvt_dat_to_mdata_(str_), size_001_);
@@ -113,10 +157,9 @@ cstring __cstr__unused
 cstr_substr(const_cstring str, const size_t pos, const size_t count)
 {
     pvt_cstr_assert(pos < cstr_size(str), "Index out of Bounds");
-	cstring substr_ = NULL;
     size_t count_ = CSTRMIN(count, cstr_size(str) - pos);
-
-	pvt_buf_grow_(substr_, count_ + 1);
+    
+	cstring substr_ = pvt_buf_grow_(NULL, count_ + 1);
 	pvt_copy_(substr_, str + pos, count_);
 	return substr_;
 }
@@ -174,13 +217,12 @@ intl_init_cpy_ch(const size_t cnt, const char ch)
 {
     cstring str_ = NULL;
     if(!cnt){
-        pvt_buf_grow_(str_, CSTRING_DEFAULT_CAP);
+        str_ = pvt_buf_grow_(NULL, CSTRING_DEFAULT_CAP);
         str_[0] = (char)0;
         pvt_set_total_size_(str_, 0);
     }
-
     intl_assign_cnt_ch(&str_, cnt, ch);
-
+    
     return str_;
 }
 
@@ -188,10 +230,9 @@ CSTR_NODISCARD  __attribute__((malloc))
 cstring __cstr__unused
 intl_copy_constructor(const_cstring other)
 {
-    cstring str_ = NULL;    
     size_t size_ = pvt_cstr_strlen(other);
-
-    pvt_buf_grow_(str_, size_ + 1);
+    cstring str_ = pvt_buf_grow_(NULL, size_ + 1);
+    
     pvt_copy_(str_, other, size_);
 
     return str_;
@@ -205,10 +246,9 @@ intl_init_cpy_str_w_iter(cstr_iterator begin,
     pvt_cstr_assert((begin.it < end.it), 
     "Unsupported arguments passed for Constructor");
 
-    cstring str_ = NULL;
     size_t size_ = cstr_distance(begin, end);
+    cstring str_ = pvt_buf_grow_(NULL, size_ + 1);
 
-    pvt_buf_grow_(str_, size_ + 1);
     pvt_copy_(str_, begin.it, size_);
 
     return str_;
@@ -219,13 +259,12 @@ cstring __cstr__unused
 intl_init_cpy_str_w_off(const_cstring other,
                         const size_t start, const size_t offset) 
 {
-    cstring str_ = NULL; 
     size_t size_  = pvt_cstr_strlen(other),
            count_ = CSTRMIN(offset, size_ - start);
     pvt_cstr_assert(other != NULL && (start < size_), 
                     "Unsupported arguments passed for Constructor");
-    
-    pvt_buf_grow_(str_, count_ + 1);
+
+    cstring str_ = pvt_buf_grow_(NULL, count_ + 1);
     pvt_copy_(str_, other + start, count_);
     
     return str_;
@@ -333,7 +372,7 @@ intl_replace_it_fill_ch(cstring *str, cstr_const_iterator first,
     pvt_cstr_assert((first__ >= cstr_cbegin(str_).it) &&
                     (last__  <= cstr_cend(str_).it)   &&
                     (first__ <= last__), 
-                    "[cstr_replace]::Iterators are out of range");
+                    "[cstr_replace] Iterators are out of range");
 
     intl_erase_range_citer(str, first, last);
     return intl_insert_cnt_ch(str, pos_, count2, ch);
@@ -353,10 +392,24 @@ intl_replace_it_str_off(cstring *str, cstr_const_iterator first,
     pvt_cstr_assert((first__ >= cstr_cbegin(str_).it) &&
                     (last__  <= cstr_cend(str_).it)   &&
                     (first__ <= last__), 
-                    "[cstr_replace]::Iterators are out of range");
+                    "[cstr_replace] Iterators are out of range");
 
     intl_erase_range_citer(str, first, last);
     return intl_insert_str_range(str, pos_, count_, other);
+}
+
+/**
+ *  Functions to compare
+ * ---------------------
+ */
+
+int __cstr__unused
+intl_compare_range_str_range(const_cstring str, const size_t pos1,
+                    const size_t count1, const_cstring other,
+                    const size_t pos2, const size_t count2)
+{
+    size_t cnt_ = CSTRMIN(count1, count2);
+    return strncmp(str + pos1, other + pos2, cnt_);
 }
 
 /**
@@ -370,15 +423,11 @@ intl_find_str_range(const_cstring str, const_cstring other,
 {
     size_t size_ = cstr_size(str);
     if (pos >= size_ || count == 0) return CSTR_NPOS;
-    if (count > size_ - pos) return CSTR_NPOS;
-
-    for (size_t i = pos; i <= size_ - count; ++i) {
-        if (memcmp(str + i, other, count) == 0) {
-            return i;
-        }
-    }
-
-    return CSTR_NPOS;
+    if ((size_ != count) && count > size_ - pos) return CSTR_NPOS;
+    
+    const_cstring found = strstr(str + pos, other);
+    size_t idx = ((found - str) < count) ? (size_t)(found - str) : CSTR_NPOS;
+    return idx;
 }
 
 size_t __cstr__unused

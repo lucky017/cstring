@@ -1,0 +1,3 @@
+[submodule "cmocka"]
+	path = cmocka
+	url = https://gitlab.com/cmocka/cmocka.git
