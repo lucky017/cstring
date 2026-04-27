@@ -9,6 +9,9 @@ for reference check:
 ```
 git clone https://github.com/lucky017/cstring.git
 cd cstring
+mkdir build
+cd build
+cmake ..
 make
 ```
 Link the resulting static library with your binaries.
