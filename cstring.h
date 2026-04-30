@@ -39,7 +39,9 @@
 
 /*
  *  Notes:
- * - The cstring support literals as const char[] but I hate the API design(see it for yourself).
+ * - All operations are byte-based (ASCII/single-byte characters only).
+ * - Multibyte encodings (UTF-8, UTF-16, etc.) are not supported.
+ * - The cstring support literals as const char[].
  * - Can use any external functions on cstring that doesn't modify the char buffer.
  * - Any function that modifies the char buffer expects `cstring*` as its first parameter and 
  *   any function that doesn't, expects const_cstring as its first parameter.
@@ -62,27 +64,21 @@
 
 #if defined(__clang__) || defined(__GNUC__)
 #define CSTR_NODISCARD                                              __attribute__((warn_unused_result))
+#define __cstr__unused		                                        __attribute__((unused))
+#define __cstr__always_inline		                                __attribute__((__always_inline__))
 
 #elif defined(_MSC_VER)
 #define CSTR_NODISCARD                                              _Check_return_
-
-#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
-#define CSTR_NODISCARD                                              [[nodiscard]]
+#define __cstr__always_inline		                                __forceinline
+#define __cstr__unused
 
 #else
 #define CSTR_NODISCARD
+#define __cstr__always_inline
+#define __cstr__unused
+
 #endif
 
-#ifdef __cstr__unused
-#undef __cstr__unused
-#endif
-
-#ifdef __cstr__always_inline
-#undef __cstr__always_inline
-#endif
-
-#define __cstr__unused		                                        __attribute__((unused))
-#define __cstr__always_inline		                                __attribute__((__always_inline__))
 
 
 #ifndef __has_builtin
@@ -842,11 +838,11 @@ cstr_substr(const_cstring str, const size_t pos, const size_t count);
  */
 #define __cstr_init_get_macro(_0,_1,_2,_3,NAME,...) NAME
 
-#define __cstr_init_chooser(...)        \
-    __cstr_init_get_macro(, ##__VA_ARGS__,\
-        __cstr_init_3,                  \
-        __cstr_init_2,                  \
-        __cstr_init_1,                  \
+#define __cstr_init_chooser(...)            \
+    __cstr_init_get_macro(, ##__VA_ARGS__,  \
+        __cstr_init_3,                      \
+        __cstr_init_2,                      \
+        __cstr_init_1,                      \
         __cstr_init_0)
 
 #define __cstr_init_0()                                 \
@@ -921,10 +917,10 @@ cstr_substr(const_cstring str, const size_t pos, const size_t count);
         PVT_GENERIC_STRING_TYPES(intl_assign_str)   \
     )(str, a)
 
-#define __cstr_assign_3(str, a, b)                      \
-    _Generic((a),                                       \
-        PVT_GENERIC_STRING_TYPES(intl_assign_str_offset),\
-        PVT_GENERIC_SIZE_TYPES(intl_assign_cnt_ch)      \
+#define __cstr_assign_3(str, a, b)                          \
+    _Generic((a),                                           \
+        PVT_GENERIC_STRING_TYPES(intl_assign_str_offset),   \
+        PVT_GENERIC_SIZE_TYPES(intl_assign_cnt_ch)          \
     )(str, a, b)
 
 #define __cstr_assign_4(str, other, pos, count)    \
@@ -943,11 +939,11 @@ cstr_substr(const_cstring str, const size_t pos, const size_t count);
         intl_append_str                     \
     )
 
-#define __cstr_append_3(str, a, b)                  \
-    _Generic((a),                                   \
-        PVT_GENERIC_STRING_TYPES(intl_append_str_offset), \
-        PVT_GENERIC_SIZE_TYPES(intl_append_cnt_ch),      \
-        default: dummy_func                         \
+#define __cstr_append_3(str, a, b)                          \
+    _Generic((a),                                           \
+        PVT_GENERIC_STRING_TYPES(intl_append_str_offset),   \
+        PVT_GENERIC_SIZE_TYPES(intl_append_cnt_ch),         \
+        default: dummy_func                                 \
     )(str, a, b)
 
 

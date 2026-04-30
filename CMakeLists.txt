@@ -6,6 +6,7 @@ project(object C)
 # Default is OFF (Static). To build Shared, 
 # use: cmake -DBUILD_SHARED=ON ..
 option(BUILD_SHARED "Build cstring as a shared library" OFF)
+option(BUILD_TESTS "Build tests for cstring" OFF)
 
 if(BUILD_SHARED)
     set(LIB_TYPE SHARED)
@@ -19,7 +20,9 @@ add_library(cstring ${LIB_TYPE} cstring.c)
 
 target_include_directories(cstring PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_subdirectory(tests)
+if(BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
 
 add_executable(${PROJECT_NAME} Main.c)
 
